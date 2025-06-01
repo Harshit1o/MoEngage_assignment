@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Doc Analyzer</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f8f9fa;
+      padding-top: 2rem;
+      color: #333;
+    }
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    .card {
+      border-radius: 10px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      margin-bottom: 1.5rem;
+      border: none;
+    }
+    .card-header {
+      background-color: #6f42c1;
+      color: white;
+      border-radius: 10px 10px 0 0 !important;
+      font-weight: 600;
+      padding: 0.8rem 1.2rem;
+    }
+    .btn-primary {
+      background-color: #6f42c1;
+      border-color: #6f42c1;
+    }
+    .btn-primary:hover {
+      background-color: #5a32a3;
+      border-color: #5a32a3;
+    }
+    .form-control:focus {
+      border-color: #6f42c1;
+      box-shadow: 0 0 0 0.25rem rgba(111, 66, 193, 0.25);
+    }
+    .loader {
+      display: none;
+      margin-left: 10px;
+    }
+    .section-title {
+      color: #6f42c1;
+      margin-bottom: 1rem;
+      font-weight: 600;
+    }
+    .analysis-container {
+      background: white;
+      border-radius: 8px;
+      padding: 20px;
+      margin-top: 10px;
+    }
+    .analysis-section {
+      margin-bottom: 15px;
+      border-bottom: 1px solid #eee;
+      padding-bottom: 15px;
+    }
+    .analysis-section:last-child {
+      border-bottom: none;
+    }
+    .section-header {
+      font-weight: 600;
+      color: #333;
+      margin-bottom: 8px;
+    }
+    .suggestions {
+      background-color: #f8f9fa;
+      border-left: 4px solid #6f42c1;
+      padding: 10px;
+      margin-top: 8px;
+      font-size: 0.9rem;
+    }
+    .score-badge {
+      background-color: #6f42c1;
+      color: white;
+      padding: 3px 8px;
+      border-radius: 12px;
+      font-size: 0.8rem;
+      margin-left: 8px;
+    }
+    pre {
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="row justify-content-center">
+      <div class="col-12">
+        <div class="text-center mb-4">
+          <h2><i class="fas fa-file-alt me-2"></i> AI Doc Analyzer</h2>
+          <p class="text-muted">Analyze and enhance MoEngage documentation with AI</p>
+        </div>
+
+        <div class="card mb-4">
+          <div class="card-header">Article URL</div>
+          <div class="card-body">
+            <div class="input-group">
+              <input id="url" type="text" class="form-control" placeholder="Enter MoEngage article URL" />
+              <button class="btn btn-primary" onclick="analyze()">
+                <span>Analyze</span>
+                <span id="analyze-loader" class="loader">
+                  <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                </span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="col-12 mb-4">
+            <div class="card">
+              <div class="card-header d-flex justify-content-between align-items-center">
+                <span>Analysis Results</span>
+                <button id="expand-all" class="btn btn-sm btn-outline-light">Expand All</button>
+              </div>
+              <div class="card-body">
+                <div id="analysis-display" class="analysis-container">
+                  <p class="text-muted text-center">Analysis will appear here...</p>
+                </div>
+                <div class="d-grid gap-2 mt-3">
+                  <button class="btn btn-primary" onclick="revise()">
+                    <i class="fas fa-sync-alt me-2"></i>
+                    <span>Revise Article</span>
+                    <span id="revise-loader" class="loader">
+                      <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                    </span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="col-12">
+            <div class="card">
+              <div class="card-header">Revised Article</div>
+              <div class="card-body">
+                <div id="revised-display" class="p-3 border rounded">
+                  <p class="text-muted text-center">Revised article will appear here...</p>
+                </div>
+                <div class="d-flex justify-content-end mt-3">
+                  <button id="copy-revised" class="btn btn-sm btn-outline-secondary">
+                    <i class="fas fa-copy me-1"></i> Copy
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Hidden textarea elements to store data -->
+  <textarea id="analysis" style="display: none;"></textarea>
+  <textarea id="revised" style="display: none;"></textarea>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    async function analyze() {
+      const url = document.getElementById("url").value;
+      if (!url) {
+        alert("Please enter a URL");
+        return;
+      }
+      
+      // Show loader
+      const loader = document.getElementById("analyze-loader");
+      loader.style.display = "inline-block";
+      
+      try {
+        const res = await fetch("http://localhost:8000/analyze/", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url })
+        });
+        
+        const data = await res.json();
+        if (data.error) {
+          throw new Error(data.error);
+        }
+        
+        // Store the raw analysis data
+        document.getElementById("analysis").value = data.analysis || "";
+        
+        // Format and display the analysis
+        displayAnalysis(data.analysis);
+      } catch (error) {
+        document.getElementById("analysis-display").innerHTML = 
+          `<div class="alert alert-danger">Error: ${error.message}</div>`;
+      } finally {
+        loader.style.display = "none";
+      }
+    }
+
+    function displayAnalysis(analysisText) {
+      const displayElement = document.getElementById("analysis-display");
+      
+      // Try to parse JSON from the text
+      try {
+        // Extract JSON from code block if present
+        let jsonMatch = analysisText.match(/```json\s*([\s\S]*?)\s*```/);
+        let jsonString = jsonMatch ? jsonMatch[1] : analysisText;
+        
+        // Clean up the string and try to parse
+        jsonString = jsonString.replace(/^\s*```.*\n/, '')
+                               .replace(/\n\s*```\s*$/, '')
+                               .trim();
+        
+        const analysisData = JSON.parse(jsonString);
+        
+        // Build formatted HTML output
+        let html = '';
+        
+        // URL section
+        if (analysisData.url) {
+          html += `<div class="analysis-section">
+                    <div class="section-header">URL</div>
+                    <div>${analysisData.url}</div>
+                  </div>`;
+        }
+        
+        // Readability section
+        if (analysisData.readability) {
+          const readability = analysisData.readability;
+          html += `<div class="analysis-section">
+                    <div class="section-header">
+                      Readability
+                      ${readability.score ? `<span class="score-badge">${readability.score}</span>` : ''}
+                    </div>
+                    <div>${readability.explanation || ''}</div>
+                    ${readability.suggestions ? 
+                      `<div class="suggestions">
+                        <strong>Suggestions:</strong>
+                        <ul>
+                          ${Array.isArray(readability.suggestions) ? 
+                            readability.suggestions.map(s => `<li>${s}</li>`).join('') : 
+                            `<li>${readability.suggestions}</li>`}
+                        </ul>
+                      </div>` : ''}
+                  </div>`;
+        }
+        
+        // Structure section
+        if (analysisData.structure) {
+          const structure = analysisData.structure;
+          html += `<div class="analysis-section">
+                    <div class="section-header">Structure and Flow</div>
+                    <div>${structure.explanation || ''}</div>
+                    ${structure.issues ? 
+                      `<div class="mt-2">
+                        <strong>Issues:</strong>
+                        <ul>
+                          ${Array.isArray(structure.issues) ? 
+                            structure.issues.map(i => `<li>${i}</li>`).join('') : 
+                            `<li>${structure.issues}</li>`}
+                        </ul>
+                      </div>` : ''}
+                    ${structure.suggestions ? 
+                      `<div class="suggestions">
+                        <strong>Suggestions:</strong>
+                        <ul>
+                          ${Array.isArray(structure.suggestions) ? 
+                            structure.suggestions.map(s => `<li>${s}</li>`).join('') : 
+                            `<li>${structure.suggestions}</li>`}
+                        </ul>
+                      </div>` : ''}
+                  </div>`;
+        }
+        
+        // Completeness section
+        if (analysisData.completeness) {
+          const completeness = analysisData.completeness;
+          html += `<div class="analysis-section">
+                    <div class="section-header">Completeness</div>
+                    <div>${typeof completeness === 'string' ? completeness : 
+                      (completeness.explanation || '')}</div>
+                    ${completeness.missing_info ? 
+                      `<div class="mt-2">
+                        <strong>Missing Information:</strong>
+                        <ul>
+                          ${Array.isArray(completeness.missing_info) ? 
+                            completeness.missing_info.map(i => `<li>${i}</li>`).join('') : 
+                            `<li>${completeness.missing_info}</li>`}
+                        </ul>
+                      </div>` : ''}
+                    ${completeness.unclear_parts ? 
+                      `<div class="mt-2">
+                        <strong>Unclear Parts:</strong>
+                        <ul>
+                          ${Array.isArray(completeness.unclear_parts) ? 
+                            completeness.unclear_parts.map(p => `<li>${p}</li>`).join('') : 
+                            `<li>${completeness.unclear_parts}</li>`}
+                        </ul>
+                      </div>` : ''}
+                  </div>`;
+        }
+        
+        // Style section
+        if (analysisData.style) {
+          const style = analysisData.style;
+          html += `<div class="analysis-section">
+                    <div class="section-header">Style</div>
+                    <div>${typeof style === 'string' ? style : 
+                      (style.explanation || '')}</div>
+                    ${style.suggestions ? 
+                      `<div class="suggestions">
+                        <strong>Suggestions:</strong>
+                        <ul>
+                          ${Array.isArray(style.suggestions) ? 
+                            style.suggestions.map(s => `<li>${s}</li>`).join('') : 
+                            `<li>${style.suggestions}</li>`}
+                        </ul>
+                      </div>` : ''}
+                  </div>`;
+        }
+        
+        displayElement.innerHTML = html || '<p>No structured analysis data found.</p>';
+      } catch (error) {
+        // If JSON parsing fails, display formatted text
+        displayElement.innerHTML = `<pre>${analysisText}</pre>`;
+      }
+    }
+
+    async function revise() {
+      const url = document.getElementById("url").value;
+      const analysis = document.getElementById("analysis").value;
+      
+      if (!url || !analysis) {
+        alert("Please analyze an article first");
+        return;
+      }
+      
+      // Show loader
+      const loader = document.getElementById("revise-loader");
+      loader.style.display = "inline-block";
+      
+      try {
+        const res = await fetch("http://localhost:8000/revise/", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url, analysis })
+        });
+        
+        const data = await res.json();
+        if (data.error) {
+          throw new Error(data.error);
+        }
+        
+        // Store raw revised article
+        document.getElementById("revised").value = data.revised_article || "";
+        
+        // Format and display the revised article
+        const revisedDisplay = document.getElementById("revised-display");
+        revisedDisplay.innerHTML = formatRevisedArticle(data.revised_article);
+      } catch (error) {
+        document.getElementById("revised-display").innerHTML = 
+          `<div class="alert alert-danger">Error: ${error.message}</div>`;
+      } finally {
+        loader.style.display = "none";
+      }
+    }
+
+    function formatRevisedArticle(text) {
+      if (!text) return '<p class="text-muted">No revised content available</p>';
+      
+      // Replace line breaks with HTML breaks and paragraphs
+      let formatted = text.replace(/\n\n+/g, '</p><p>')
+                          .replace(/\n/g, '<br>');
+      
+      // Wrap in paragraph tags if not already
+      if (!formatted.startsWith('<p>')) {
+        formatted = '<p>' + formatted;
+      }
+      if (!formatted.endsWith('</p>')) {
+        formatted = formatted + '</p>';
+      }
+      
+      return formatted;
+    }
+
+    // Copy revised text to clipboard
+    document.getElementById("copy-revised").addEventListener("click", function() {
+      const text = document.getElementById("revised").value;
+      navigator.clipboard.writeText(text).then(function() {
+        const button = document.getElementById("copy-revised");
+        const originalText = button.innerHTML;
+        button.innerHTML = '<i class="fas fa-check me-1"></i> Copied!';
+        setTimeout(() => {
+          button.innerHTML = originalText;
+        }, 2000);
+      });
+    });
+    
+    // Toggle expand/collapse all sections
+    document.getElementById("expand-all").addEventListener("click", function() {
+      const sections = document.querySelectorAll(".analysis-section");
+      const isExpanded = this.textContent === "Collapse All";
+      
+      this.textContent = isExpanded ? "Expand All" : "Collapse All";
+      
+      sections.forEach(section => {
+        const content = section.querySelectorAll("div:not(.section-header)");
+        content.forEach(el => {
+          el.style.display = isExpanded ? "none" : "block";
+        });
+      });
+    });
+  </script>
+</body>
+</html>
