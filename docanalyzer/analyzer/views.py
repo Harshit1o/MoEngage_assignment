@@ -5,8 +5,6 @@ from rest_framework.response import Response
 from .gemini_utils import model  
 import requests
 from rest_framework.decorators import api_view
-from rest_framework.response import Response
-import requests
 from bs4 import BeautifulSoup
 from .gemini_utils import analyze_document
 
